@@ -1,0 +1,7 @@
+arguments :
+path/filename.pcd
+image_cols
+image_rows
+color_resolution
+density_radius
+to calibrate the color which point is the farthest when sorted (to erase false measurements, points too far)
