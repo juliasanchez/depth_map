@@ -122,7 +122,7 @@ int main(int argc, char *argv[])
 
     pcl::io::savePCDFileASCII ("normals_ball_before.pcd", *normals_ball);
 
-    float radius =atof(argv[6]);
+    float radius = atof(argv[6]);
     std::vector<pcl::PointNormal> clus;
     density_filter(normals_ball, radius, clus);
 
@@ -160,6 +160,10 @@ int main(int argc, char *argv[])
     int max_col =atoi(argv[5]);
     int Nrow=atoi(argv[3]);
     int Ncol=atoi(argv[4]);
+    float theta_app = 140;
+    theta_app *= M_PI/180;
+    float phi_app = 140;
+    phi_app *= M_PI/180;
 
     Eigen::MatrixXf image;
     std::multimap<std::vector<int>, std::vector<float>> map_gen;
@@ -191,18 +195,18 @@ int main(int argc, char *argv[])
             else
                 alpha_vec[i] = acos(clus[i].x);
 
-            if(abs(clus[i].z)<0.1)
+            if(clus[i].z<-0.97)
             {
                 std::cout<<"use of cluster number "<<i<<std::endl<<std::endl;
                 std::multimap<std::vector<int>, std::vector<float>> mappy;
                 Eigen::MatrixXf im=Eigen::MatrixXf::Zero(Nrow,Ncol);
-                std::vector<float> axis = {clus[i].x,clus[i].y,clus[i].z};
+                Eigen::Vector3f axis = {clus[i].x,clus[i].y,clus[i].z};
                 if(depth_map==1) // each pixel = point distance
-                    convert_tangent(transformed_cloud, &im, &mappy, max_col, axis, 120*M_PI/180, M_PI/2, luz);
+                    convert_tangent(transformed_cloud, &im, &mappy, max_col, axis, theta_app , phi_app, luz);
                 else if (depth_map==2) // each pixel = plane distance
-                    convert_tangent_d(pointNormals, &im, &mappy, max_col, axis, 120*M_PI/180, M_PI/2, luz);
+                    convert_tangent_d(pointNormals, &im, &mappy, max_col, axis, theta_app , phi_app, luz);
                 else if (depth_map==3) // each pixel = cluster on gaussian image
-                    convert_tangent_a(pointNormals, &im, &mappy, max_col, axis, clus, 120*M_PI/180, M_PI/2);
+                    convert_tangent_a(pointNormals, &im, &mappy, max_col, axis, clus, theta_app , phi_app);
                 else
                 {
                     im=Eigen::MatrixXf::Zero(Nrow,Ncol*3);
@@ -210,6 +214,7 @@ int main(int argc, char *argv[])
 //                    save_image_ppm(file_name, "_test", &im, max_col);
                 }
                 image_vec.push_back(im);
+                save_image_pgm(file_name, "_test", &im, max_col);
                mappy_vec.push_back(mappy);
             }
         }
@@ -354,36 +359,36 @@ int main(int argc, char *argv[])
 
 //    // GRADIENT------------------------------------------------------------------------------------------------------------------------
 
-//    Eigen::MatrixXf image_grad (image.rows(),image.cols());
-//    image_grad = Eigen::MatrixXf::Zero(image.rows(),image.cols());
+    Eigen::MatrixXf image_grad (image.rows(),image.cols());
+    image_grad = Eigen::MatrixXf::Zero(image.rows(),image.cols());
 
-//    Eigen::MatrixXf image_s (image.rows(),image.cols());
-//    image_s = Eigen::MatrixXf::Zero(image.rows(),image.cols());
+    Eigen::MatrixXf image_s (image.rows(),image.cols());
+    image_s = Eigen::MatrixXf::Zero(image.rows(),image.cols());
 
-//    contour(&image_filt, &image_grad, &image_s, max_col);
+    contour(&image_filt, &image_grad, &image_s, max_col);
 
-//    save_image_pgm(file_name, "_gradient", &image_grad, max_col);
+    save_image_pgm(file_name, "_gradient", &image_grad, max_col);
 
-//    Eigen::MatrixXf image_super (image.rows(),image.cols());
-//    image_super = Eigen::MatrixXf::Zero(image.rows(),image.cols());
+    Eigen::MatrixXf image_super (image.rows(),image.cols());
+    image_super = Eigen::MatrixXf::Zero(image.rows(),image.cols());
 
-//    for (int i = 0; i < image.rows(); ++i)
-//    {
-//        for (int j = 0; j < image.cols(); ++j)
-//        {
-//            if (image_s(i,j)>10)
-//            {
-//                image_super(i,j)=max_col;
-//            }
-//            else
-//            {
-//                image_super(i,j)=image_filt(i,j);
-//            }
-//        }
-//    }
+    for (int i = 0; i < image.rows(); ++i)
+    {
+        for (int j = 0; j < image.cols(); ++j)
+        {
+            if (image_s(i,j)>10)
+            {
+                image_super(i,j)=max_col;
+            }
+            else
+            {
+                image_super(i,j)=image_filt(i,j);
+            }
+        }
+    }
 
-//    save_image_pgm(file_name, "_gradient_superimposed", &image_super, max_col);
-//    save_image_pgm(file_name, "_gradient_seuille", &image_s, max_col);
+    save_image_pgm(file_name, "_gradient_superimposed", &image_super, max_col);
+    save_image_pgm(file_name, "_gradient_seuille", &image_s, max_col);
 
 //    // Get points on pointcloud laying on openings-----------------------------------------------------------------------------------------------------------------------------------------------
 

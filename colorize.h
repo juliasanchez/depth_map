@@ -14,7 +14,7 @@
 
 typedef pcl::PointXYZ pcl_point;
 
-void colorize(pcl::PointCloud<pcl::PointNormal>::Ptr cloud_in, Eigen::MatrixXf *image, std::multimap<std::vector<int>, std::vector<float>> *mappy, int max_col, std::vector<float> axis, std::vector<pcl::PointNormal> clus, float theta_app, float phi_app);
+void colorize(pcl::PointCloud<pcl::PointNormal>::Ptr cloud_in, Eigen::MatrixXf *image, std::multimap<std::vector<int>, std::vector<float>> *mappy, int max_col, Eigen::Vector3f axis, std::vector<pcl::PointNormal> clus, float theta_app, float phi_app);
 
 #include "colorize.inl"
 

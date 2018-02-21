@@ -1,4 +1,4 @@
-void colorize(pcl::PointCloud<pcl::PointNormal>::Ptr cloud_in, Eigen::MatrixXf *image, std::multimap<std::vector<int>, std::vector<float>> *mappy, int max_col, std::vector<float> axis, std::vector<pcl::PointNormal> clus, float theta_app, float phi_app)
+void colorize(pcl::PointCloud<pcl::PointNormal>::Ptr cloud_in, Eigen::MatrixXf *image, std::multimap<std::vector<int>, std::vector<float>> *mappy, int max_col, Eigen::Vector3f axis, std::vector<pcl::PointNormal> clus, float theta_app, float phi_app)
 {
     std::vector< std::vector<float> > color (8, std::vector<float>(3));
     color[0] = {0.5,0.4,0.1};
@@ -10,17 +10,13 @@ void colorize(pcl::PointCloud<pcl::PointNormal>::Ptr cloud_in, Eigen::MatrixXf *
     color[6] = {1,1,0};
     color[7] = {1,1,1};
 
-    float alpha = acos(axis[0]);
-    if (axis[1]>0)
-            alpha=-alpha;
-    Eigen::Matrix4f rotation_transform = Eigen::Matrix4f::Identity();
-    rotation_transform (0,0)=cos(alpha);
-    rotation_transform (0,1)=-sin(alpha);
-    rotation_transform (1,0)=sin(alpha);
-    rotation_transform (1,1)=cos(alpha);
+    float alpha = acos(axis.dot(Eigen::Vector3f::UnitX()));
+    Eigen::Vector3f rot_axis = axis.cross(Eigen::Vector3f::UnitX());
+    rot_axis /= rot_axis.norm();
+    Eigen::Affine3f rotation_transform = Eigen::Affine3f::Identity();
+    rotation_transform.rotate(Eigen::AngleAxisf (alpha, rot_axis));
 
     pcl::PointCloud<pcl::PointNormal>::Ptr transformed_cloud (new pcl::PointCloud<pcl::PointNormal>);
-
     pcl::transformPointCloudWithNormals(*cloud_in, *transformed_cloud, rotation_transform);
 
     pcl::io::savePCDFileASCII ("cloud.pcd", *transformed_cloud);

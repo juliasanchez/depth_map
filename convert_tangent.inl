@@ -1,15 +1,12 @@
-void convert_tangent(pcl::PointCloud<pcl_point>::Ptr cloud_in, Eigen::MatrixXf *image, std::multimap<std::vector<int>, std::vector<float>> *mappy, int max_col, std::vector<float> axis, float theta_app, float phi_app, int luz)
+void convert_tangent(pcl::PointCloud<pcl_point>::Ptr cloud_in, Eigen::MatrixXf *image, std::multimap<std::vector<int>, std::vector<float>> *mappy, int max_col, Eigen::Vector3f axis, float theta_app, float phi_app, int luz)
 {
-    float alpha = acos(axis[0]);
-    if (axis[1]<0)
-            alpha=2*M_PI-alpha;
-    Eigen::Matrix4f rotation_transform = Eigen::Matrix4f::Identity();
-    rotation_transform (0,0)=cos(M_PI-alpha);
-    rotation_transform (0,1)=-sin(M_PI-alpha);
-    rotation_transform (1,0)=sin(M_PI-alpha);
-    rotation_transform (1,1)=cos(M_PI-alpha);
-    pcl::PointCloud<pcl_point>::Ptr transformed_cloud (new pcl::PointCloud<pcl::PointXYZ>);
+    float alpha = acos(axis.dot(Eigen::Vector3f::UnitX()));
+    Eigen::Vector3f rot_axis = axis.cross(Eigen::Vector3f::UnitX());
+    rot_axis /= rot_axis.norm();
+    Eigen::Affine3f rotation_transform = Eigen::Affine3f::Identity();
+    rotation_transform.rotate(Eigen::AngleAxisf (alpha, rot_axis));
 
+    pcl::PointCloud<pcl_point>::Ptr transformed_cloud (new pcl::PointCloud<pcl::PointXYZ>);
     pcl::transformPointCloud(*cloud_in, *transformed_cloud, rotation_transform);
 
     int Ncol = image->cols();
@@ -34,22 +31,13 @@ void convert_tangent(pcl::PointCloud<pcl_point>::Ptr cloud_in, Eigen::MatrixXf *
     {
         float r = sqrt((transformed_cloud->points[i].x)*(transformed_cloud->points[i].x)+(transformed_cloud->points[i].y)*(transformed_cloud->points[i].y)+(transformed_cloud->points[i].z)*(transformed_cloud->points[i].z));
         float theta = acos(transformed_cloud->points[i].z/r);
-        float phi = abs((atan(transformed_cloud->points[i].y/transformed_cloud->points[i].x)));
+        float phi = atan2(transformed_cloud->points[i].y,transformed_cloud->points[i].x);
+        if(phi<0)
+        {
+            phi += 2*M_PI;
+        }
         if(r>0.05)
         {
-            if(transformed_cloud->points[i].x<0 && transformed_cloud->points[i].y>0)
-            {
-                phi = M_PI-phi;
-            }
-            if(transformed_cloud->points[i].x<0 && transformed_cloud->points[i].y<0)
-            {
-                phi = phi+M_PI;
-            }
-            if(transformed_cloud->points[i].x>0 && transformed_cloud->points[i].y<0)
-            {
-                phi = 2*M_PI-phi;
-            }
-
 //            float theta_app = 120*M_PI/180;
 //            float phi_app = M_PI/2;
 
