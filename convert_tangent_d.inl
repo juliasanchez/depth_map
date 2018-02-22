@@ -35,8 +35,6 @@ void convert_tangent_d(pcl::PointCloud<pcl::PointNormal>::Ptr cloud_in, Eigen::M
         }
         if(r>0.05)
         {
-//            float theta_app = 120*M_PI/180;
-//            float phi_app = M_PI/2;
             float max_dot = 6.0;
 
             float offset = abs(1/ ( tan(M_PI/2+theta_app/2)*cos(-phi_app/2)) );

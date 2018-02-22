@@ -51,7 +51,7 @@ void contour(Eigen::MatrixXf *image, Eigen::MatrixXf *image_out, Eigen::MatrixXf
         for (int j = 0; j<Ncol; ++j)
         {
            imager(i,j) = (int)(imager(i,j)*max_col/temp);
-           if(imager(i,j)<(int)(max_col/20))
+           if(imager(i,j)<(int)(max_col/2))
              imager_seuil(i,j)=0;
            else
            {

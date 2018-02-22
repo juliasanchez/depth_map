@@ -278,20 +278,27 @@ int main(int argc, char *argv[])
         else
             save_image_pgm(file_name, "", &image, max_col);
 
-//        //Creation of conversion map
+        std::cout<< "stop projection on wall planes"<<std::endl;
 
-//        map_gen = mappy_vec[0];
-//        for (int i = 1; i < mappy_vec.size(); ++i)
-//        {
-//            for(std::multimap<std::vector<int>, std::vector<float>>::const_iterator it = mappy_vec[i].begin(); it != mappy_vec[i].end(); ++it)
-//            {
-//                std::vector<int> pol = it->first;
-//                pol[1]=pol[1]+i*Ncol;
-//                map_gen.insert(std::make_pair(pol, it->second) );
-//            }
-//        }
+        //Creation of conversion map
 
-//        std::cout<< "stop projection on wall planes"<<std::endl;
+
+        std::cout<< "start generating conversion map"<<std::endl;
+
+        map_gen = mappy_vec[0];
+        for (int i = 1; i < mappy_vec.size(); ++i)
+        {
+            for(std::multimap<std::vector<int>, std::vector<float>>::const_iterator it = mappy_vec[i].begin(); it != mappy_vec[i].end(); ++it)
+            {
+                std::vector<int> pol = it->first;
+                pol[1]=pol[1]+i*Ncol;                               //because the global image is the concatenation of various images in y direction
+                map_gen.insert(std::make_pair(pol, it->second) );
+            }
+        }
+
+        std::cout<< "stop generating conversion map"<<std::endl;
+
+
     }
 
     // FILTRER (MEDIAN) POUR REMPLIR LES PIXELS NOIRS (SANS VALEUR)------------------------------------------------------------------------------------------------------------------------
@@ -308,54 +315,6 @@ int main(int argc, char *argv[])
     median_filter(&image_filt, &image_filt, 0);
 
     save_image_pgm(file_name, "_filtered", &image_filt, max_col);
-
-//    // SEUILLAGE------------------------------------------------------------------------------------------------------------------------
-
-
-//    Eigen::MatrixXf image_filt_s (image.rows(), image.cols());
-//    image_filt_s = Eigen::MatrixXf::Zero(image.rows(), image.cols());
-
-//    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_trimmed(new pcl::PointCloud<pcl::PointXYZ>);
-
-//    // Fill in the cloud data
-//    int n=0;
-
-//    for (int i = 0; i < image.rows(); ++i)
-//    {
-//        for (int j = 0; j < image.cols(); ++j)
-//        {
-//            ++n;
-//            if(image_filt(i,j) > max_col/2)
-//            {
-//                image_filt_s(i,j) = image_filt(i,j);
-//                std::vector<int> pol = {i , j};
-//                std::vector<float> cart;
-//                auto it = map_gen.find(pol);
-//                if (it != map_gen.end())
-//                {
-//                    cart = it->second;
-//                    pcl::PointXYZ p;
-//                    p.x = cart[0];
-//                    p.y = cart[1];
-//                    p.z = cart[2];
-//                    cloud_trimmed->points.push_back(p);
-//                }
-//                else
-//                {
-//                    std::cout<<"pas trouvé!"<<std::endl<<std::endl;
-//                }
-//            }
-//        }
-//    }
-
-//    cloud_trimmed->width    = cloud_trimmed->points.size();
-//    cloud_trimmed->height   = 1;
-//    cloud_trimmed->is_dense = false;
-//    cloud_trimmed->points.resize (cloud_trimmed->width * cloud_trimmed->height);
-
-//    pcl::io::savePCDFileASCII ("cloud_trimmed.pcd", *cloud_trimmed);
-
-//    save_image_pgm(file_name, "_seuillee", &image_filt_s, max_col);
 
 //    // GRADIENT------------------------------------------------------------------------------------------------------------------------
 
@@ -376,7 +335,7 @@ int main(int argc, char *argv[])
     {
         for (int j = 0; j < image.cols(); ++j)
         {
-            if (image_s(i,j)>10)
+            if (image_s(i,j)>200)
             {
                 image_super(i,j)=max_col;
             }
@@ -390,39 +349,42 @@ int main(int argc, char *argv[])
     save_image_pgm(file_name, "_gradient_superimposed", &image_super, max_col);
     save_image_pgm(file_name, "_gradient_seuille", &image_s, max_col);
 
-//    // Get points on pointcloud laying on openings-----------------------------------------------------------------------------------------------------------------------------------------------
 
-//    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_open(new pcl::PointCloud<pcl::PointXYZ>);
+//    // Get points on pointcloud laying on planes boundaries-----------------------------------------------------------------------------------------------------------------------------------------------
 
-//    for (int i = 0; i < image.rows(); ++i)
-//    {
-//        for (int j = 0; j < image.cols(); ++j)
-//        {
-//            if(image_s(i,j)>50)
-//            {
-//                std::vector<int> pol = {i , j};
-//                std::vector<float> cart;
-//                auto it = map_gen.find(pol);
-//                if (it != map_gen.end())
-//                {
-//                    cart = it->second;
-//                    pcl::PointXYZ p;
-//                    p.x = cart[0];
-//                    p.y = cart[1];
-//                    p.z = cart[2];
-//                    cloud_open->points.push_back(p);
-//                }
+    pcl::PointCloud<pcl::PointXYZ>::Ptr hull (new pcl::PointCloud<pcl::PointXYZ>);
 
-//            }
-//        }
-//    }
+    for (int i = 0; i < image.rows(); ++i)
+    {
+        for (int j = 0; j < image.cols(); ++j)
+        {
+            if(image_s(i,j)>0)
+            {
+                std::vector<int> pol = {i , j};
+                std::vector<float> cart;
 
-//    cloud_open->width    = cloud_open->points.size();
-//    cloud_open->height   = 1;
-//    cloud_open->is_dense = false;
-//    cloud_open->points.resize (cloud_open->width * cloud_open->height);
+                std::pair <std::multimap<std::vector<int>, std::vector<float>>::iterator, std::multimap<std::vector<int>, std::vector<float>>::iterator> ret;
+                ret = map_gen.equal_range(pol);
 
-//    pcl::io::savePCDFileASCII ("cloud_open.pcd", *cloud_open);
+                for (auto it=ret.first; it!=ret.second; ++it)
+                {
+                    cart = it->second;
+                    pcl::PointXYZ p;
+                    p.x = cart[0];
+                    p.y = cart[1];
+                    p.z = cart[2];
+                    hull->points.push_back(p);
+                }
+            }
+        }
+    }
+
+    hull->width    = hull->points.size();
+    hull->height   = 1;
+    hull->is_dense = false;
+    hull->points.resize (hull->width * hull->height);
+
+    pcl::io::savePCDFileASCII ("boundary.csv", *hull);
 
 
 }
