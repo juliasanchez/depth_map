@@ -25,14 +25,46 @@ int main(int argc, char *argv[])
 
     if(argc != 10)
     {
-        std::cout<< "file 20 Ncol Nrow max_color radius_for_density_filter luz depth_map_type hokuyo_ou_autre"<<std::endl<<std::endl;
+        std::cout<< "file neighbors_for_normals_computation radius_for_density_filter Ncol Nrow max_color angle_apperture depth_map_type hokuyo_ou_autre"<<std::endl<<std::endl;
     }
 
+    //pointcloud features---------------------
 
+    int n = 1;
+    std::string file_name = argv[n];
+    ++n;
+    int normals_neighbors = atoi(argv[n]);
+    ++n;
+    float density_radius = atof(argv[n]);
+    ++n;
 
-    int hokuyo = atoi(argv[9]);
+    //image features---------------------
 
-    std::string file_name = argv[1];
+    int Nrow=atoi(argv[n]);
+    ++n;
+
+    int Ncol=atoi(argv[n]);
+    ++n;
+
+    float theta_app = atof(argv[n]);    //degrees
+    theta_app *= M_PI/180;              //radians
+    float phi_app = atof(argv[n]);      //degrees
+    phi_app *= M_PI/180;                //radians
+    ++n;
+
+    int max_col =atoi(argv[n]);
+    ++n;
+
+    //depth map method---------------------
+
+    int depth_map = atoi(argv[n]);
+    ++n;
+
+    //first transform if hokuyo device---------------------
+
+    int hokuyo = atoi(argv[n]);
+    ++n;
+
     pcl::PointCloud<pcl_point>::Ptr cloud(new pcl::PointCloud<pcl_point>);
 
     if( pcl::io::loadPCDFile<pcl::PointXYZ >( file_name, *cloud ) == -1 )
@@ -43,20 +75,17 @@ int main(int argc, char *argv[])
     std::cout<< "start initial transformation"<<std::endl;
 
 
-    Eigen::Matrix4f rotation_transform = Eigen::Matrix4f::Identity();
-//        rotation_transform (0,0)=cos(20*M_PI/180);
-//        rotation_transform (0,1)=-sin(20*M_PI/180);
-//        rotation_transform (1,0)=sin(20*M_PI/180);
-//        rotation_transform (1,1)=cos(20*M_PI/180);
+    Eigen::Matrix4f transform = Eigen::Matrix4f::Identity();
+
     if(hokuyo)
     {
-        rotation_transform (0,3) = 0.027;
-        rotation_transform (1,3) = 0;
-        rotation_transform (2,3) = -0.18;
+        transform (0,3) = 0.027;
+        transform (1,3) = 0;
+        transform (2,3) = -0.18;
     }
 
     pcl::PointCloud<pcl::PointXYZ>::Ptr transformed_cloud (new pcl::PointCloud<pcl::PointXYZ>);
-    pcl::transformPointCloud(*cloud, *transformed_cloud, rotation_transform);
+    pcl::transformPointCloud(*cloud, *transformed_cloud, transform);
 
     std::cout<< "stop initial transformation"<<std::endl;
 
@@ -74,7 +103,7 @@ int main(int argc, char *argv[])
 
     pcl::NormalEstimationOMP<pcl_point, pcl::PointNormal> normal_estimation;
     normal_estimation.setSearchMethod(typename pcl::search::KdTree<pcl_point>::Ptr(new pcl::search::KdTree<pcl_point>));
-    normal_estimation.setKSearch(atoi(argv[2]));
+    normal_estimation.setKSearch(normals_neighbors);
     normal_estimation.setViewPoint (0, 0, 0);
     normal_estimation.setInputCloud(transformed_cloud);
     normal_estimation.compute(*pointNormals);
@@ -85,7 +114,6 @@ int main(int argc, char *argv[])
         pointNormals->points[i].y=transformed_cloud->points[i].y;
         pointNormals->points[i].z=transformed_cloud->points[i].z;
     }
-
 
 //    PCL_Normal_Estimator<pcl::PointXYZ,pcl::Normal> NE(transformed_cloud,normals);
 
@@ -101,6 +129,8 @@ int main(int argc, char *argv[])
 
     std::vector<int> indices;
     pcl::removeNaNNormalsFromPointCloud(*pointNormals, *pointNormals, indices);
+
+    pcl::io::savePCDFileASCII ("points_with_normals.csv", *pointNormals);
 
     auto t_aft_normals= std::chrono::high_resolution_clock::now();
 
@@ -122,9 +152,8 @@ int main(int argc, char *argv[])
 
     pcl::io::savePCDFileASCII ("normals_ball_before.pcd", *normals_ball);
 
-    float radius = atof(argv[6]);
     std::vector<pcl::PointNormal> clus;
-    density_filter(normals_ball, radius, clus);
+    density_filter(normals_ball, density_radius, clus);
 
     std::string file_name_tot2 = "clus.csv";
     ofstream file2 (file_name_tot2);
@@ -156,16 +185,8 @@ int main(int argc, char *argv[])
 
     // CONVERTIR EN CARTE DE PROFONDEUR-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-    int depth_map = atoi(argv[8]);
-    int max_col =atoi(argv[5]);
-    int Nrow=atoi(argv[3]);
-    int Ncol=atoi(argv[4]);
-    float theta_app = 140;
-    theta_app *= M_PI/180;
-    float phi_app = 140;
-    phi_app *= M_PI/180;
-
     Eigen::MatrixXf image;
+    std::vector<Eigen::MatrixXf> image_vec;
     std::multimap<std::vector<int>, std::vector<float>> map_gen;
 
     if(depth_map==0) // projection of points distance onto a cylinder
@@ -180,11 +201,9 @@ int main(int argc, char *argv[])
     {
         std::cout<< "start points distance projection onto wall planes"<<std::endl;
 
-        std::vector<std::multimap<std::vector<int>, std::vector<float>>> mappy_vec;
-
-        std::vector<Eigen::MatrixXf> image_vec;
+        std::vector<std::multimap<std::vector<int>, std::vector<float>>> mappy_vec; 
         std::vector<float> alpha_vec(clus.size());
-        int luz = atoi(argv[7]);
+        float luz = 6.0;
 
         // projection on detected walls
 
@@ -303,6 +322,7 @@ int main(int argc, char *argv[])
 
     // FILTRER (MEDIAN) POUR REMPLIR LES PIXELS NOIRS (SANS VALEUR)------------------------------------------------------------------------------------------------------------------------
 
+    std::cout<< "start filling black pixels"<<std::endl;
     Eigen::MatrixXf image_filt (image.rows(),image.cols());
     image_filt = Eigen::MatrixXf::Zero(image.rows(),image.cols());
 
@@ -314,9 +334,15 @@ int main(int argc, char *argv[])
     median_filter(&image_filt, &image_filt, 1);
     median_filter(&image_filt, &image_filt, 0);
 
+
+    image_filt(210,230) = 0;
     save_image_pgm(file_name, "_filtered", &image_filt, max_col);
 
+    std::cout<< "stop filling black pixels"<<std::endl;
+
 //    // GRADIENT------------------------------------------------------------------------------------------------------------------------
+
+    std::cout<< "start computing boundary"<<std::endl;
 
     Eigen::MatrixXf image_grad (image.rows(),image.cols());
     image_grad = Eigen::MatrixXf::Zero(image.rows(),image.cols());
@@ -349,8 +375,12 @@ int main(int argc, char *argv[])
     save_image_pgm(file_name, "_gradient_superimposed", &image_super, max_col);
     save_image_pgm(file_name, "_gradient_seuille", &image_s, max_col);
 
+    std::cout<< "stop computing boundary"<<std::endl;
+
 
 //    // Get points on pointcloud laying on planes boundaries-----------------------------------------------------------------------------------------------------------------------------------------------
+
+    std::cout<< "start building boundary pointcloud"<<std::endl;
 
     pcl::PointCloud<pcl::PointXYZ>::Ptr hull (new pcl::PointCloud<pcl::PointXYZ>);
 
@@ -363,17 +393,40 @@ int main(int argc, char *argv[])
                 std::vector<int> pol = {i , j};
                 std::vector<float> cart;
 
-                std::pair <std::multimap<std::vector<int>, std::vector<float>>::iterator, std::multimap<std::vector<int>, std::vector<float>>::iterator> ret;
-                ret = map_gen.equal_range(pol);
-
-                for (auto it=ret.first; it!=ret.second; ++it)
+                int rad = 0;
+                int test = 1;
+                while (test)
                 {
-                    cart = it->second;
-                    pcl::PointXYZ p;
-                    p.x = cart[0];
-                    p.y = cart[1];
-                    p.z = cart[2];
-                    hull->points.push_back(p);
+                    std::vector<std::vector<int>> neigh (0, std::vector<int>(2));
+                    for (int k = i-rad; k <= i+rad; ++k)
+                    {
+                        for (int l = j-rad; l <= j+rad; ++l)
+                        {
+                            neigh.push_back({k,l});
+                        }
+                    }
+
+                    int ind = 0;
+                    while( test && ind < neigh.size() )
+                    {
+                        if(image_vec[0](neigh[ind][0],neigh[ind][1])>10)
+                        {
+                            std::pair <std::multimap<std::vector<int>, std::vector<float>>::iterator, std::multimap<std::vector<int>, std::vector<float>>::iterator> ret;
+                            ret = map_gen.equal_range(neigh[ind]);
+                            for (auto it=ret.first; it!=ret.second; ++it)
+                            {
+                                cart = it->second;
+                                pcl::PointXYZ p;
+                                p.x = cart[0];
+                                p.y = cart[1];
+                                p.z = cart[2];
+                                hull->points.push_back(p);
+                                test = 0;
+                            }
+                        }
+                        ++ind;
+                    }
+                    ++rad;
                 }
             }
         }
@@ -384,7 +437,18 @@ int main(int argc, char *argv[])
     hull->is_dense = false;
     hull->points.resize (hull->width * hull->height);
 
+    if(hokuyo)
+    {
+        transform (0,3) = -0.027;
+        transform (1,3) = -0;
+        transform (2,3) = +0.18;
+
+        pcl::transformPointCloud(*hull, *hull, transform);
+    }
+
     pcl::io::savePCDFileASCII ("boundary.csv", *hull);
+
+    std::cout<< "stop building boundary pointcloud"<<std::endl;
 
 
 }

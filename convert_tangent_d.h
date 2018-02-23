@@ -16,7 +16,7 @@
 
 typedef pcl::PointXYZ pcl_point;
 
-void convert_tangent_d(pcl::PointCloud<pcl::PointNormal>::Ptr cloud_in, Eigen::MatrixXf *image, std::multimap<std::vector<int>, std::vector<float>> *mappy, int max_col, Eigen::Vector3f axis, float theta_app, float phi_app, int luz);
+void convert_tangent_d(pcl::PointCloud<pcl::PointNormal>::Ptr cloud_in, Eigen::MatrixXf *image, std::multimap<std::vector<int>, std::vector<float>> *mappy, int max_col, Eigen::Vector3f axis, float theta_app, float phi_app, float luz);
 
 #include "convert_tangent_d.inl"
 

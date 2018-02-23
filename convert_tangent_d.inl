@@ -1,4 +1,4 @@
-void convert_tangent_d(pcl::PointCloud<pcl::PointNormal>::Ptr cloud_in, Eigen::MatrixXf *image, std::multimap<std::vector<int>, std::vector<float>> *mappy, int max_col, Eigen::Vector3f axis, float theta_app, float phi_app, int luz)
+void convert_tangent_d(pcl::PointCloud<pcl::PointNormal>::Ptr cloud_in, Eigen::MatrixXf *image, std::multimap<std::vector<int>, std::vector<float>> *mappy, int max_col, Eigen::Vector3f axis, float theta_app, float phi_app, float luz)
 {
     //depth map : color = plane distance
     float alpha = acos(axis.dot(Eigen::Vector3f::UnitX()));
@@ -35,7 +35,7 @@ void convert_tangent_d(pcl::PointCloud<pcl::PointNormal>::Ptr cloud_in, Eigen::M
         }
         if(r>0.05)
         {
-            float max_dot = 6.0;
+            float max_dot = luz;
 
             float offset = abs(1/ ( tan(M_PI/2+theta_app/2)*cos(-phi_app/2)) );
             float ancho = 2 * offset;

@@ -16,7 +16,7 @@ void convert_tangent_a(pcl::PointCloud<pcl::PointNormal>::Ptr cloud, Eigen::Matr
     int Ncol = image->cols();
     int Nrow = image->rows();
     Eigen::MatrixXf image0(Nrow, Ncol);
-    Eigen::MatrixXf image1(Nrow, Ncol);
+    Eigen::MatrixXf image1 = Eigen::MatrixXf::Zero(Nrow, Ncol);
     image0 = Eigen::MatrixXf::Zero(Nrow,Ncol);
 
     float Ymin = tan(-theta_app/2)/cos(phi_app/2);
@@ -82,8 +82,12 @@ void convert_tangent_a(pcl::PointCloud<pcl::PointNormal>::Ptr cloud, Eigen::Matr
                 ///-------------------------------------------------------------------------------------------
 
                 std::vector<int> pol(2);
-                pol[0] =  (int) ((Y-Ymin)/deltaY) ;
+                pol[0] =  (int) ((Y-Ymin)/deltaY) ; //image(Y,X)
                 pol[1] = (int) ((X-Xmin)/deltaX);
+                if(pol[0] == 182 && pol[1] == 248)
+                {
+                    int test = 1;
+                }
                 std::vector<float> cart(3);
                 cart[0] = cloud->points[i].x;
                 cart[1] = cloud->points[i].y;

@@ -1,4 +1,4 @@
-void convert_tangent(pcl::PointCloud<pcl_point>::Ptr cloud_in, Eigen::MatrixXf *image, std::multimap<std::vector<int>, std::vector<float>> *mappy, int max_col, Eigen::Vector3f axis, float theta_app, float phi_app, int luz)
+void convert_tangent(pcl::PointCloud<pcl_point>::Ptr cloud_in, Eigen::MatrixXf *image, std::multimap<std::vector<int>, std::vector<float>> *mappy, int max_col, Eigen::Vector3f axis, float theta_app, float phi_app, float luz)
 {
     float alpha = acos(axis.dot(Eigen::Vector3f::UnitX()));
     Eigen::Vector3f rot_axis = axis.cross(Eigen::Vector3f::UnitX());
@@ -24,7 +24,7 @@ void convert_tangent(pcl::PointCloud<pcl_point>::Ptr cloud_in, Eigen::MatrixXf *
     }
 
     std::sort (vec_r.begin(), vec_r.end());
-    temp=vec_r[vec_r.size()-luz];
+    temp=vec_r[vec_r.size()-(int)luz];
 //    temp = 12.0;
 
     for (int i =0; i<transformed_cloud->size(); ++i)
