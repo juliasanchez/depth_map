@@ -89,7 +89,7 @@ int main(int argc, char *argv[])
 
     std::cout<< "stop initial transformation"<<std::endl;
 
-    // COMPUTE MAIN NORMALS USING GAUSSIAN IMAGE DENSITY--------------------------------------------------------------------------------------------------------
+    /// COMPUTE MAIN NORMALS USING GAUSSIAN IMAGE DENSITY--------------------------------------------------------------------------------------------------------
 
     std::cout<< "start computing normals"<<std::endl;
 
@@ -138,8 +138,7 @@ int main(int argc, char *argv[])
 
     std::cout<< "stop computing normals"<<std::endl;
     std::cout<<"total time to compute normals :" <<std::chrono::duration_cast<std::chrono::milliseconds>(t_aft_normals-t_bef_normals).count()<<" milliseconds"<<std::endl<<std::endl;
-
-    std::cout<< "source: points number after preprocessing : "<<pointNormals->size()<<std::endl;
+    std::cout<< "source: points number after preprocessing : "<<pointNormals->size()<<std::endl<<std::endl;
 
     std::cout<< "start selecting main normals"<<std::endl;
 
@@ -148,7 +147,7 @@ int main(int argc, char *argv[])
     pcl::PointCloud<pcl::PointNormal>::Ptr normals_ball(new pcl::PointCloud<pcl::PointNormal>);
     pcn2pc(pointNormals, normals_ball);
 
-    //2_ filter normals to enhance clusters   HEAVY STEP
+//    2_ filter normals to enhance clusters   HEAVY STEP
 
     pcl::io::savePCDFileASCII ("normals_ball_before.pcd", *normals_ball);
 
@@ -164,26 +163,14 @@ int main(int argc, char *argv[])
             file2<<k*clus[i].x/1000<<","<<k*clus[i].y/1000<<","<<k*clus[i].z/1000<<"\n";
         }
     }
+    if(file2.is_open())
+        file2.close();
 
-    std::vector<pcl::PointNormal> clus_cpy = clus;
-    for (int i = 0; i<clus.size(); i++)
-    {
-        clus_cpy[0]=clus[1];
-        clus_cpy[1]=clus[3];
-        clus_cpy[2]=clus[5];
-        clus_cpy[3]=clus[4];
-        clus_cpy[4]=clus[0];
-        clus_cpy[5]=clus[2];
-    }
-
-    clus = clus_cpy;
-
-    file2.close();
     std::cout<< "main normals found : "<<clus.size()<<std::endl;
-    std::cout<< "stop selecting main normals"<<std::endl;
+    std::cout<< "stop selecting main normals"<<std::endl<<std::endl;
 
 
-    // CONVERTIR EN CARTE DE PROFONDEUR-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+    /// CONVERTIR EN CARTES DE PROFONDEUR SUR CHAQUE AXE-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
     Eigen::MatrixXf image;
     std::vector<Eigen::MatrixXf> image_vec;
@@ -199,9 +186,9 @@ int main(int argc, char *argv[])
     }
     else // projection of points distance onto tangent planes (corresponding to walls)
     {
-        std::cout<< "start points distance projection onto wall planes"<<std::endl;
+        std::cout<< "-------------Projection onto wall planes----------------"<<std::endl<<std::endl;
 
-        std::vector<std::multimap<std::vector<int>, std::vector<float>>> mappy_vec; 
+        std::vector<std::multimap<std::vector<int>, std::vector<float>>> mappy_vec;
         std::vector<float> alpha_vec(clus.size());
         float luz = 6.0;
 
@@ -214,9 +201,9 @@ int main(int argc, char *argv[])
             else
                 alpha_vec[i] = acos(clus[i].x);
 
-            if(clus[i].z<-0.97)
+            if(abs(clus[i].z)<0.1 && clus[i].x>0.8) //to select ceiling (clus[i].z<-0.97)/floor or walls can be removed
             {
-                std::cout<<"use of cluster number "<<i<<std::endl<<std::endl;
+                std::cout<<"start building image from cluster number "<<i<<" values : "<< clus[i].x<<" "<<clus[i].y<<" "<<clus[i].z<<std::endl;
                 std::multimap<std::vector<int>, std::vector<float>> mappy;
                 Eigen::MatrixXf im=Eigen::MatrixXf::Zero(Nrow,Ncol);
                 Eigen::Vector3f axis = {clus[i].x,clus[i].y,clus[i].z};
@@ -232,9 +219,10 @@ int main(int argc, char *argv[])
                     colorize(pointNormals, &im, &mappy, max_col, axis, clus, 120*M_PI/180, M_PI/2);
 //                    save_image_ppm(file_name, "_test", &im, max_col);
                 }
+
+                std::cout<<"stop building image from cluster number "<<i<<std::endl<<std::endl;
                 image_vec.push_back(im);
-                save_image_pgm(file_name, "_test", &im, max_col);
-               mappy_vec.push_back(mappy);
+                mappy_vec.push_back(mappy);
             }
         }
 
@@ -278,6 +266,7 @@ int main(int argc, char *argv[])
 
         //Creation of whole image with all images concatenation
 
+        std::cout<<"start building and saving total image"<<std::endl;
         image = Eigen::MatrixXf::Zero(image_vec[0].rows(),image_vec[0].cols()*image_vec.size());
 
         for( int i = 0; i < image_vec.size(); ++i)
@@ -286,18 +275,18 @@ int main(int argc, char *argv[])
             {
                 for( int l = 0; l < image_vec[0].cols(); ++l)
                 {
-                    Eigen::MatrixXf im=image_vec[i];
-                    image(k,l+i*image_vec[0].cols()) = im(k,l);
+                    image(k,l+i*image_vec[0].cols()) = image_vec[i](k,l);
                 }
             }
         }
+
         //Save Image
         if (depth_map==4)
             save_image_ppm(file_name, "", &image, max_col);
         else
             save_image_pgm(file_name, "", &image, max_col);
 
-        std::cout<< "stop projection on wall planes"<<std::endl;
+        std::cout<<"stop building and saving total image"<<std::endl<<std::endl;
 
         //Creation of conversion map
 
@@ -315,7 +304,7 @@ int main(int argc, char *argv[])
             }
         }
 
-        std::cout<< "stop generating conversion map"<<std::endl;
+        std::cout<< "stop generating conversion map"<<std::endl<<std::endl;
 
 
     }
@@ -325,20 +314,25 @@ int main(int argc, char *argv[])
     std::cout<< "start filling black pixels"<<std::endl;
     Eigen::MatrixXf image_filt (image.rows(),image.cols());
     image_filt = Eigen::MatrixXf::Zero(image.rows(),image.cols());
+    bool black;
 
-    median_filter(&image, &image_filt, 1);
-    median_filter(&image_filt, &image_filt, 1);
-    median_filter(&image_filt, &image_filt, 1);
-    median_filter(&image_filt, &image_filt, 1);
-    median_filter(&image_filt, &image_filt, 1);
-    median_filter(&image_filt, &image_filt, 1);
-    median_filter(&image_filt, &image_filt, 0);
+    median_filter(&image, &image_filt, 1, &black);
+
+    while (black)
+    {
+        median_filter(&image_filt, &image_filt, 1, &black);
+    }
+//    median_filter(&image_filt, &image_filt, 1, &black);
+//    median_filter(&image_filt, &image_filt, 1, &black);
+//    median_filter(&image_filt, &image_filt, 1, &black);
+//    median_filter(&image_filt, &image_filt, 1, &black);
+    median_filter(&image_filt, &image_filt, 0, &black);
 
 
     image_filt(210,230) = 0;
     save_image_pgm(file_name, "_filtered", &image_filt, max_col);
 
-    std::cout<< "stop filling black pixels"<<std::endl;
+    std::cout<< "stop filling black pixels"<<std::endl<<std::endl;
 
 //    // GRADIENT------------------------------------------------------------------------------------------------------------------------
 
@@ -375,7 +369,7 @@ int main(int argc, char *argv[])
     save_image_pgm(file_name, "_gradient_superimposed", &image_super, max_col);
     save_image_pgm(file_name, "_gradient_seuille", &image_s, max_col);
 
-    std::cout<< "stop computing boundary"<<std::endl;
+    std::cout<< "stop computing boundary"<<std::endl<<std::endl;
 
 
 //    // Get points on pointcloud laying on planes boundaries-----------------------------------------------------------------------------------------------------------------------------------------------
@@ -448,7 +442,7 @@ int main(int argc, char *argv[])
 
     pcl::io::savePCDFileASCII ("boundary.csv", *hull);
 
-    std::cout<< "stop building boundary pointcloud"<<std::endl;
+    std::cout<< "stop building boundary pointcloud"<<std::endl<<std::endl;
 
 
 }

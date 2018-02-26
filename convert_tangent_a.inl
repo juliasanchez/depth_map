@@ -4,12 +4,29 @@ void convert_tangent_a(pcl::PointCloud<pcl::PointNormal>::Ptr cloud, Eigen::Matr
     // depth_map : each color is a cluster on the gaussian image (main normal)
     float alpha = acos(axis.dot(Eigen::Vector3f::UnitX()));
     Eigen::Vector3f rot_axis = axis.cross(Eigen::Vector3f::UnitX());
+    if(rot_axis.norm()<0.1) // pour avoir un truc aligné en XY (pas nécessaire normalement)
+    {
+        if(alpha>0.1)
+        {
+            rot_axis = {0,0,1};
+            alpha = M_PI;
+        }
+        else
+        {
+            rot_axis = {0,0,1};
+            alpha = 0;
+        }
+    }
+
     rot_axis /= rot_axis.norm();
     Eigen::Affine3f rotation_transform = Eigen::Affine3f::Identity();
     rotation_transform.rotate(Eigen::AngleAxisf (alpha, rot_axis));
 
     pcl::PointCloud<pcl::PointNormal>::Ptr transformed_cloud (new pcl::PointCloud<pcl::PointNormal>);
     pcl::transformPointCloudWithNormals(*cloud, *transformed_cloud, rotation_transform);
+
+    pcl::io::savePCDFileASCII ("transformed_cloud.csv", *transformed_cloud);
+    pcl::io::savePCDFileASCII ("cloud.csv", *cloud);
 
     axis = -axis;
 
@@ -19,9 +36,11 @@ void convert_tangent_a(pcl::PointCloud<pcl::PointNormal>::Ptr cloud, Eigen::Matr
     Eigen::MatrixXf image1 = Eigen::MatrixXf::Zero(Nrow, Ncol);
     image0 = Eigen::MatrixXf::Zero(Nrow,Ncol);
 
-    float Ymin = tan(-theta_app/2)/cos(phi_app/2);
+//    float Ymin = tan(-theta_app/2)/cos(phi_app/2);
+    float Ymin = tan(-theta_app/2);
     float Xmin = tan(-phi_app/2);
-    float Ymax = tan(theta_app/2)/cos(phi_app/2)+0.0001;
+//    float Ymax = tan(theta_app/2)/cos(phi_app/2)+0.0001;
+    float Ymax = tan(theta_app/2);
     float Xmax = tan(phi_app/2)+0.0001;
 
     float deltaY = (Ymax - Ymin)/Nrow;
@@ -40,32 +59,38 @@ void convert_tangent_a(pcl::PointCloud<pcl::PointNormal>::Ptr cloud, Eigen::Matr
         cloud->points[i].normal_z /= norm;
     }
 
+    float temp = 0;
+
     for (int i =0; i<transformed_cloud->size(); ++i)
     {
         float r = sqrt((transformed_cloud->points[i].x)*(transformed_cloud->points[i].x)+(transformed_cloud->points[i].y)*(transformed_cloud->points[i].y)+(transformed_cloud->points[i].z)*(transformed_cloud->points[i].z));
         float theta = asin(transformed_cloud->points[i].z/r);
         float phi = atan2(transformed_cloud->points[i].y,transformed_cloud->points[i].x);
 
+        float X = tan(phi);
+        float Y = tan(theta)/cos(phi);
+
         if(r>0.05)
         {
-            if((phi<phi_app/2 && phi>-phi_app/2) && (theta<theta_app/2 && theta>-theta_app/2))
+            if((X<Xmax && X>=Xmin) && (Y<Ymax && Y>=Ymin) && (phi<phi_app/2 && phi>-phi_app/2) && (theta>-theta_app/2 && theta<theta_app/2))
             {
 
                 ///-------------------------------------------------------------------------------------------
-
-                float X = tan(phi);
-                float Y = tan(theta)/cos(phi);
                 float doti = cloud->points[i].normal_x*axis(0)+ cloud->points[i].normal_y*axis(1) + cloud->points[i].normal_z*axis(2);
-                float distance = abs(cloud->points[i].x*axis(0)+ cloud->points[i].y*axis(1) + cloud->points[i].z*axis(2));
 
                 if(doti > 0.9)
                 {
-                    image0( (int) ((Y-Ymin)/deltaY), (int) ((X-Xmin)/deltaX) ) += 1;
+                    float distance = abs(cloud->points[i].x*axis(0)+ cloud->points[i].y*axis(1) + cloud->points[i].z*axis(2));
+                    if(temp<distance)
+                    {
+                        temp = distance;
+                    }
+                    image0( (int) ((Y-Ymin)/deltaY), (int) ((X-Xmin)/deltaX) ) += 1; //Some average is done with the number of points in the pixel belonging to doti<0.9 and doti>0.9 (ie in the current studied plane or not)
                     image1( (int) ((Y-Ymin)/deltaY), (int) ((X-Xmin)/deltaX) ) = distance ;
                 }
                 else
                 {
-                    image0( (int) ((Y-Ymin)/deltaY), (int) ((X-Xmin)/deltaX) ) -= 1;
+                    image0( (int) ((Y-Ymin)/deltaY), (int) ((X-Xmin)/deltaX) ) -= 1; //Some average is done with the number of points in the pixel belonging to doti<0.9 and doti>0.9 (ie in the current studied plane or not)
                 }
 
                 ///-------------------------------------------------------------------------------------------
@@ -84,10 +109,7 @@ void convert_tangent_a(pcl::PointCloud<pcl::PointNormal>::Ptr cloud, Eigen::Matr
                 std::vector<int> pol(2);
                 pol[0] =  (int) ((Y-Ymin)/deltaY) ; //image(Y,X)
                 pol[1] = (int) ((X-Xmin)/deltaX);
-                if(pol[0] == 182 && pol[1] == 248)
-                {
-                    int test = 1;
-                }
+
                 std::vector<float> cart(3);
                 cart[0] = cloud->points[i].x;
                 cart[1] = cloud->points[i].y;
@@ -99,8 +121,8 @@ void convert_tangent_a(pcl::PointCloud<pcl::PointNormal>::Ptr cloud, Eigen::Matr
 
     }
 
-    float max_distance = image1.maxCoeff();
-
+//    float max_distance = image1.maxCoeff();
+    float max_distance = temp;
 
     for( int i = 0; i < image0.rows(); ++i)
     {
@@ -112,7 +134,7 @@ void convert_tangent_a(pcl::PointCloud<pcl::PointNormal>::Ptr cloud, Eigen::Matr
             }
             else if (image0( i, j ) < 0)
             {
-                image0( i, (int) j ) = 10; //other elements appear with color 10
+                image0( i, j ) = 10; //other elements appear with color 10
             }
         }
     }

@@ -12,7 +12,7 @@
 
 typedef pcl::PointXYZ pcl_point;
 
-void median_filter(Eigen::MatrixXf *image, Eigen::MatrixXf *image_filt, int holes);
+void median_filter(Eigen::MatrixXf *image, Eigen::MatrixXf *image_filt, int holes, bool* black);
 int vecMed(std::vector<int> vec);
 
 #include "median_filter.inl"

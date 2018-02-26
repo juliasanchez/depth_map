@@ -1,5 +1,6 @@
-void median_filter(Eigen::MatrixXf *image, Eigen::MatrixXf *image_filt, int holes)
+void median_filter(Eigen::MatrixXf *image, Eigen::MatrixXf *image_filt, int holes, bool* black)
 {
+    *black = false;
     Eigen::MatrixXf image0 = *image;
     Eigen::MatrixXf image_cp = *image;
 
@@ -31,6 +32,7 @@ void median_filter(Eigen::MatrixXf *image, Eigen::MatrixXf *image_filt, int hole
                         vec.push_back(image_cp(i+1,j+1));
 
                     image0(i,j)=vecMed(vec);
+                    *black = true;
                 }
                 else
                 {
